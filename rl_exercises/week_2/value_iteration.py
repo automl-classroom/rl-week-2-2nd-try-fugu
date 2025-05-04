@@ -47,12 +47,12 @@ class ValueIteration(AbstractAgent):
         self.seed = seed
 
         # TODO: Extract MDP components from the environment
-        self.S = None
-        self.A = None
-        self.T = None
-        self.R_sa = None
-        self.n_states = None
-        self.n_actions = None
+        self.S = self.env.observation_space
+        self.A = self.env.action_space
+        self.T = self.env.get_transition_matrix()
+        self.R_sa = self.env.get_reward_per_action()
+        self.n_states = self.env.observation_space.n
+        self.n_actions = self.env.action_space.n
 
         # placeholders
         self.V = np.zeros(self.n_states, dtype=float)
@@ -72,6 +72,8 @@ class ValueIteration(AbstractAgent):
         )
 
         # TODO: Call value_iteration() with extracted MDP components
+        self.V = V_opt
+        self.pi = pi_opt
 
     def predict_action(
         self,
@@ -84,7 +86,7 @@ class ValueIteration(AbstractAgent):
             self.update_agent()
 
         # TODO: Return action from learned policy
-        raise NotImplementedError("predict_action() is not implemented.")
+        return self.pi[observation], {}
 
 
 def value_iteration(
@@ -120,7 +122,7 @@ def value_iteration(
     V : np.ndarray, shape (n_states,)
         Optimal state‐value function.
     pi : np.ndarray, shape (n_states,)
-        Greedy policy w.r.t. V, with random tie‐breaking.
+        Greedy policy w.r.t. V, with random tie-breaking.
     """
     n_states, n_actions = R_sa.shape
     V = np.zeros(n_states, dtype=float)
@@ -128,7 +130,36 @@ def value_iteration(
     pi = None
 
     # TODO: update V using the Q values until convergence
+    while True:
+        delta = 0
+        V_new = np.zeros_like(V)
+        for s in range(n_states):
+            V_new[s] = max(
+                R_sa[s, a]
+                + gamma
+                * sum(T[s, a, s_prime] * V[s_prime] for s_prime in range(n_states))
+                for a in range(n_actions)
+            )
+            delta = max(delta, abs(V_new[s] - V[s]))
+        V = V_new
+        if delta < epsilon:
+            break
 
     # TODO: Extract the greedy policy from V and update pi
+    pi = np.zeros(n_states, dtype=int)
+    for s in range(n_states):
+        pi[s] = np.argmax(
+            [
+                R_sa[s, a]
+                + gamma
+                * sum(T[s, a, s_prime] * V[s_prime] for s_prime in range(n_states))
+                for a in range(n_actions)
+            ]
+        )
 
     return V, pi
+
+
+if __name__ == "__main__":
+    algo = ValueIteration(env=MarsRover())
+    algo.update_agent()
